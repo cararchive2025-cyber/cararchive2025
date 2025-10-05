@@ -21,4 +21,26 @@ app.get("/ping", (req, res) => {
 });
 
 // list all images route
-ap
+app.get("/images", async (req, res) => {
+  try {
+    const result = await cloudinary.api.resources({
+      type: "upload",
+      resource_type: "image",
+      max_results: 100,
+    });
+
+    const images = result.resources.map((img) => ({
+      public_id: img.public_id,
+      url: img.secure_url,
+    }));
+
+    res.json(images);
+  } catch (err) {
+    console.error("Cloudinary API error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`✅ Server running at http://0.0.0.0:${port}`);
+});
