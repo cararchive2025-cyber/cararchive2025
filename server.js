@@ -1,27 +1,35 @@
 // server.js
+require("dotenv").config(); // Load .env variables at the very top
 const express = require("express");
 const cloudinary = require("cloudinary").v2;
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// configure cloudinary from environment variables
+// Configure Cloudinary from environment variables
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.API_KEY,
   api_secret: process.env.API_SECRET,
 });
 
-// health check route
+// Health check route
 app.get("/ping", (req, res) => {
+  if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
+    return res.status(500).json({ error: "Cloudinary environment variables not set" });
+  }
   res.json({
     message: "Server is running",
-    cloud_name: process.env.CLOUD_NAME || "not set",
+    cloud_name: process.env.CLOUD_NAME,
   });
 });
 
-// list all images route
+// Route to list Cloudinary images
 app.get("/images", async (req, res) => {
+  if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
+    return res.status(500).json({ error: "Cloudinary environment variables not set" });
+  }
+
   try {
     const result = await cloudinary.api.resources({
       type: "upload",
@@ -41,6 +49,7 @@ app.get("/images", async (req, res) => {
   }
 });
 
+// Start server
 app.listen(port, () => {
   console.log(`✅ Server running at http://0.0.0.0:${port}`);
 });
