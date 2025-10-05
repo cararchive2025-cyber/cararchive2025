@@ -24,27 +24,45 @@ app.get("/ping", (req, res) => {
   });
 });
 
-// Route to list Cloudinary images
+/**
+ * GET /images
+ * Optional query parameter: tags (comma-separated)
+ * Example: /images?tags=nature,forest
+ */
 app.get("/images", async (req, res) => {
+  const tagsQuery = req.query.tags;
+
   if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
     return res.status(500).json({ error: "Cloudinary environment variables not set" });
   }
 
   try {
-    const result = await cloudinary.api.resources({
-      type: "upload",
-      resource_type: "image",
-      max_results: 100,
-    });
+    // Build the search expression
+    let expression = "";
+    if (tagsQuery) {
+      const tags = tagsQuery.split(",").map((t) => t.trim());
+      // Cloudinary search expression: AND all tags
+      expression = tags.map((tag) => `tags:${tag}`).join(" AND ");
+    }
 
+    // Execute search, including tags in each result
+    const result = await cloudinary.search
+      .expression(expression)
+      .max_results(100)
+      .sort_by("public_id", "desc")
+      .with_field("tags") // include tags in the response
+      .execute();
+
+    // Map results to include public_id, url, and associated tags
     const images = result.resources.map((img) => ({
       public_id: img.public_id,
       url: img.secure_url,
+      tags: img.tags || [], // ensure tags is an array
     }));
 
     res.json(images);
   } catch (err) {
-    console.error("Cloudinary API error:", err);
+    console.error("Cloudinary Search API error:", err);
     res.status(500).json({ error: err.message });
   }
 });
