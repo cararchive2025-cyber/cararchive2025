@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cloudinary Image Browser</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input[type=text] { width: 300px; padding: 5px; }
+    button { padding: 5px 10px; }
+    .image-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    .image-item { width: 200px; }
+    .image-item img { width: 100%; height: auto; display: block; }
+    .tags { font-size: 0.9em; color: #555; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Cloudinary Image Browser</h1>
+  <p>Enter tags (comma-separated) to filter images:</p>
+  <input type="text" id="tagsInput" placeholder="e.g. nature,forest" />
+  <button onclick="fetchImages()">Search</button>
+  <div class="image-grid" id="imageGrid"></div>
+
+  <script>
+    async function fetchImages() {
+      const tags = document.getElementById('tagsInput').value;
+      const url = tags ? '/images?tags=' + encodeURIComponent(tags) : '/images';
+      const response = await fetch(url);
+      const images = await response.json();
+      const grid = document.getElementById('imageGrid');
+      grid.innerHTML = '';
+      if(images.length === 0){
+        grid.innerHTML = '<p>No images found.</p>';
+        return;
+      }
+      images.forEach(img => {
+        const div = document.createElement('div');
+        div.className = 'image-item';
+        div.innerHTML = `
+          <img src="${img.url}" alt="${img.public_id}" />
+          <div class="tags">Tags: ${img.tags.join(', ')}</div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

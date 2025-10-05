@@ -1,34 +1,31 @@
 // server.js
-require("dotenv").config(); // Load .env variables at the very top
+require("dotenv").config();
 const express = require("express");
 const cloudinary = require("cloudinary").v2;
+const path = require("path");
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configure Cloudinary from environment variables
+// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.API_KEY,
   api_secret: process.env.API_SECRET,
 });
 
-// Health check route
+// Serve static files from the 'public' folder
+app.use(express.static(path.join(__dirname, "public")));
+
+// Health check
 app.get("/ping", (req, res) => {
   if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
     return res.status(500).json({ error: "Cloudinary environment variables not set" });
   }
-  res.json({
-    message: "Server is running",
-    cloud_name: process.env.CLOUD_NAME,
-  });
+  res.json({ message: "Server is running", cloud_name: process.env.CLOUD_NAME });
 });
 
-/**
- * GET /images
- * Optional query parameter: tags (comma-separated)
- * Example: /images?tags=nature,forest
- */
+// Images API
 app.get("/images", async (req, res) => {
   const tagsQuery = req.query.tags;
 
@@ -37,27 +34,23 @@ app.get("/images", async (req, res) => {
   }
 
   try {
-    // Build the search expression
     let expression = "";
     if (tagsQuery) {
       const tags = tagsQuery.split(",").map((t) => t.trim());
-      // Cloudinary search expression: AND all tags
       expression = tags.map((tag) => `tags:${tag}`).join(" AND ");
     }
 
-    // Execute search, including tags in each result
     const result = await cloudinary.search
       .expression(expression)
       .max_results(100)
       .sort_by("public_id", "desc")
-      .with_field("tags") // include tags in the response
+      .with_field("tags")
       .execute();
 
-    // Map results to include public_id, url, and associated tags
     const images = result.resources.map((img) => ({
       public_id: img.public_id,
       url: img.secure_url,
-      tags: img.tags || [], // ensure tags is an array
+      tags: img.tags || [],
     }));
 
     res.json(images);
