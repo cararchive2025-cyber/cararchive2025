@@ -1,8 +1,16 @@
 {
-  "name": "hello-world-node",
+  "name": "cloudinary-image-list",
   "version": "1.0.0",
+  "description": "Simple Node.js server to list Cloudinary images",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "cloudinary": "^1.41.0",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
