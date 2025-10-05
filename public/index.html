@@ -27,6 +27,7 @@
             color: inherit;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s;
+            cursor: pointer;
         }
 
         .card:hover {
@@ -86,6 +87,26 @@
 
     <div class="image-grid" id="imageGrid"></div>
 
+    <!-- Bootstrap Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalLabel"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <img id="modalImage" src="" alt="" class="img-fluid mb-3">
+                    <div id="modalTags" class="mb-2"></div>
+                    <div id="modalDescription"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         async function fetchImages(tags) {
             const query = tags || '';
@@ -103,7 +124,7 @@
                 const div = document.createElement('div');
                 div.className = 'image-card';
                 div.innerHTML = `
-                    <a href="${img.url}" target="_blank" class="card">
+                    <div class="card" onclick="showModal('${img.public_id}')">
                         <img class="card-img-top" src="${img.url}" alt="${img.public_id}">
                         <div class="card-body">
                             <h5 class="card-title">${img.title}</h5>
@@ -111,10 +132,23 @@
                                 ${img.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
                             </div>
                         </div>
-                    </a>
+                    </div>
                 `;
                 grid.appendChild(div);
             });
+        }
+
+        async function showModal(public_id) {
+            // Fetch details from /detail endpoint
+            const response = await fetch('/detail?public_id=' + encodeURIComponent(public_id));
+            const data = await response.json();
+
+            document.getElementById('imageModalLabel').textContent = data.title;
+            document.getElementById('modalImage').src = data.url;
+            document.getElementById('modalTags').innerHTML = data.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+            document.getElementById('modalDescription').textContent = data.description || 'No description';
+
+            $('#imageModal').modal('show'); // Bootstrap 4 modal
         }
 
         function handleSearch(event) {

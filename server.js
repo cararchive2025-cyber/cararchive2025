@@ -14,55 +14,72 @@ cloudinary.config({
   api_secret: process.env.API_SECRET,
 });
 
-// Serve static files from the 'public' folder
+// Serve static files from 'public'
 app.use(express.static(path.join(__dirname, "public")));
 
 // Health check
 app.get("/ping", (req, res) => {
-  if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
-    return res.status(500).json({ error: "Cloudinary environment variables not set" });
-  }
   res.json({ message: "Server is running", cloud_name: process.env.CLOUD_NAME });
 });
 
 // Images API
 app.get("/images", async (req, res) => {
   const tagsQuery = req.query.tags;
-
-  if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
-    return res.status(500).json({ error: "Cloudinary environment variables not set" });
-  }
-
   try {
     let expression = "";
     if (tagsQuery) {
-      const tags = tagsQuery.split(",").map((t) => t.trim());
-      expression = tags.map((tag) => `tags:${tag}`).join(" AND ");
+      const tags = tagsQuery.split(",").map(t => t.trim());
+      expression = tags.map(tag => `tags:${tag}`).join(" AND ");
     }
 
     const result = await cloudinary.search
       .expression(expression)
       .max_results(100)
       .sort_by("public_id", "desc")
-      .with_field("tags")
-      .with_field("context") // Include context to get caption/title
       .execute();
 
-    const images = result.resources.map((img) => ({
-      public_id: img.public_id,
-      url: img.secure_url,
-      tags: img.tags || [],
-      title: img.context?.custom?.caption || img.context?.caption || img.public_id,
+    const images = await Promise.all(result.resources.map(async (img) => {
+      const resource = await cloudinary.api.resource(img.public_id, { with_field: ["context"] });
+      return {
+        public_id: resource.public_id,
+        url: resource.secure_url,
+        tags: resource.tags || [],
+        title: resource.context?.custom?.caption || resource.public_id,
+        description: resource.context?.custom?.alt || "",
+      };
     }));
 
     res.json(images);
   } catch (err) {
-    console.error("Cloudinary Search API error:", err);
+    console.error("Cloudinary API error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Start server
+// Detail API using query parameter
+app.get("/detail", async (req, res) => {
+  const public_id = req.query.public_id;
+  if (!public_id) {
+    return res.status(400).json({ error: "Missing 'public_id' query parameter" });
+  }
+
+  try {
+    const resource = await cloudinary.api.resource(public_id, { with_field: ["context"] });
+    console.log("Detail API response:", resource);
+
+    res.json({
+      public_id: resource.public_id,
+      url: resource.secure_url,
+      tags: resource.tags || [],
+      title: resource.context?.custom?.caption || resource.public_id,
+      description: resource.context?.custom?.alt || "",
+    });
+  } catch (err) {
+    console.error("Cloudinary API error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`✅ Server running at http://0.0.0.0:${port}`);
 });
