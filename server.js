@@ -45,12 +45,14 @@ app.get("/images", async (req, res) => {
       .max_results(100)
       .sort_by("public_id", "desc")
       .with_field("tags")
+      .with_field("context") // Include context to get caption/title
       .execute();
 
     const images = result.resources.map((img) => ({
       public_id: img.public_id,
       url: img.secure_url,
       tags: img.tags || [],
+      title: img.context?.custom?.caption || img.context?.caption || img.public_id,
     }));
 
     res.json(images);
