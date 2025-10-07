@@ -1,55 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Carchive Upload</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" crossorigin="anonymous">
     <style>
-        body { padding: 2rem; }
-        #preview { max-width: 300px; margin-top: 1rem; }
+        #preview {
+            max-width: 100%;
+            margin-top: 1rem;
+        }
+        body {
+            background-color: #f8f9fa;
+        }
     </style>
 </head>
+
 <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <a class="navbar-brand" href="#">Carchive</a>
+    </nav>
+
     <div class="container">
-        <h2>Upload Image to Carchive</h2>
+        <div class="row justify-content-center">
+            <div class="col-lg-6 col-md-8 col-sm-10">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4 text-center">Upload Image to Carchive</h4>
+                        <form id="uploadForm">
+                            <div class="form-group">
+                                <label for="fileInput">Select file:</label>
+                                <input type="file" class="form-control-file" id="fileInput">
+                            </div>
 
-        <form id="uploadForm">
-            <div class="form-group">
-                <label for="fileInput">Select file:</label>
-                <input type="file" id="fileInput" class="form-control">
+                            <div class="form-group">
+                                <label for="urlInput">Or provide image URL:</label>
+                                <input type="url" class="form-control" id="urlInput" placeholder="https://example.com/image.jpg">
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="titleInput">Title:</label>
+                                    <input type="text" class="form-control" id="titleInput" placeholder="Image title">
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="descInput">Description:</label>
+                                    <input type="text" class="form-control" id="descInput" placeholder="Image description">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tagsInput">Tags (comma-separated):</label>
+                                <input type="text" class="form-control" id="tagsInput" placeholder="suv, red, awd">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-block">Upload</button>
+                        </form>
+
+                        <div class="progress mt-3" style="height: 25px;">
+                            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;">0%</div>
+                        </div>
+
+                        <div id="status" class="mt-2 text-center"></div>
+                        <img id="preview" class="img-thumbnail d-none mx-auto d-block">
+                    </div>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label for="urlInput">Or provide image URL:</label>
-                <input type="text" id="urlInput" class="form-control" placeholder="https://example.com/image.jpg">
-            </div>
-
-            <div class="form-group">
-                <label for="titleInput">Title:</label>
-                <input type="text" id="titleInput" class="form-control" placeholder="Image title">
-            </div>
-
-            <div class="form-group">
-                <label for="descInput">Description:</label>
-                <input type="text" id="descInput" class="form-control" placeholder="Image description">
-            </div>
-
-            <div class="form-group">
-                <label for="tagsInput">Tags (comma-separated):</label>
-                <input type="text" id="tagsInput" class="form-control" placeholder="suv, red, awd">
-            </div>
-
-            <button type="submit" class="btn btn-primary">Upload</button>
-        </form>
-
-        <div id="status" class="mt-3"></div>
-        <img id="preview" class="img-thumbnail d-none">
+        </div>
     </div>
 
     <script>
         const form = document.getElementById('uploadForm');
         const statusDiv = document.getElementById('status');
         const previewImg = document.getElementById('preview');
+        const progressBar = document.getElementById('progressBar');
         const CLOUD_NAME = "dixqo3cpk";
         const UPLOAD_PRESET = "car-archive";
 
@@ -57,6 +81,8 @@
             e.preventDefault();
             statusDiv.textContent = '';
             previewImg.classList.add('d-none');
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
 
             const urlInput = document.getElementById('urlInput').value.trim();
             const fileInput = document.getElementById('fileInput').files[0];
@@ -78,9 +104,7 @@
                 formData.append('file', urlInput);
             }
 
-            if (tagsInput) {
-                formData.append('tags', tagsInput); // comma-separated tags
-            }
+            if (tagsInput) formData.append('tags', tagsInput);
 
             if (titleInput || descInput) {
                 let contextStr = [];
@@ -89,25 +113,51 @@
                 formData.append('context', contextStr.join('|'));
             }
 
-            try {
-                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
-                if (data.secure_url) {
-                    statusDiv.textContent = 'Upload successful!';
-                    previewImg.src = data.secure_url;
-                    previewImg.classList.remove('d-none');
-                } else if (data.error) {
-                    statusDiv.textContent = 'Upload failed: ' + JSON.stringify(data.error);
-                } else {
-                    statusDiv.textContent = 'Upload failed: Unknown error';
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`, true);
+
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressBar.textContent = percent + '%';
                 }
-            } catch (err) {
-                statusDiv.textContent = 'Upload error: ' + err.message;
-            }
+            });
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.secure_url) {
+                        statusDiv.textContent = "✅ Upload successful!";
+                        previewImg.src = data.secure_url;
+                        previewImg.classList.remove('d-none');
+                        progressBar.style.width = '100%';
+                        progressBar.textContent = '100%';
+                    } else if (data.error) {
+                        statusDiv.textContent = '❌ Upload failed: ' + JSON.stringify(data.error);
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '0%';
+                    }
+                } else {
+                    statusDiv.textContent = '❌ Upload failed: HTTP ' + xhr.status;
+                    progressBar.style.width = '0%';
+                    progressBar.textContent = '0%';
+                }
+            };
+
+            xhr.onerror = () => {
+                statusDiv.textContent = '❌ Upload error';
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+            };
+
+            xhr.send(formData);
         });
     </script>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
 </body>
+
 </html>
