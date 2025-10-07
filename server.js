@@ -3,6 +3,8 @@ require("dotenv").config();
 const express = require("express");
 const cloudinary = require("cloudinary").v2;
 const path = require("path");
+const multer = require("multer");
+const fs = require("fs");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,11 +13,16 @@ const port = process.env.PORT || 3000;
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.API_KEY,
-  api_secret: process.env.API_SECRET,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 // Serve static files from 'public'
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Multer setup for file uploads
+const upload = multer({ dest: "tmp/" });
 
 // Health check
 app.get("/ping", (req, res) => {
@@ -28,8 +35,8 @@ app.get("/images", async (req, res) => {
   try {
     let expression = "";
     if (tagsQuery) {
-      const tags = tagsQuery.split(",").map(t => t.trim());
-      expression = tags.map(tag => `tags:${tag}`).join(" AND ");
+      const tags = tagsQuery.split(",").map((t) => t.trim());
+      expression = tags.map((tag) => `tags:${tag}`).join(" AND ");
     }
 
     const result = await cloudinary.search
@@ -38,42 +45,20 @@ app.get("/images", async (req, res) => {
       .sort_by("public_id", "desc")
       .execute();
 
-    const images = await Promise.all(result.resources.map(async (img) => {
-      const resource = await cloudinary.api.resource(img.public_id, { with_field: ["context"] });
-      return {
-        public_id: resource.public_id,
-        url: resource.secure_url,
-        tags: resource.tags || [],
-        title: resource.context?.custom?.caption || resource.public_id,
-        description: resource.context?.custom?.alt || "",
-      };
-    }));
+    const images = await Promise.all(
+      result.resources.map(async (img) => {
+        const resource = await cloudinary.api.resource(img.public_id, { with_field: ["context"] });
+        return {
+          public_id: resource.public_id,
+          url: resource.secure_url,
+          tags: resource.tags || [],
+          title: resource.context?.custom?.caption || resource.public_id,
+          description: resource.context?.custom?.alt || "",
+        };
+      })
+    );
 
     res.json(images);
-  } catch (err) {
-    console.error("Cloudinary API error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Detail API using query parameter
-app.get("/detail", async (req, res) => {
-  const public_id = req.query.public_id;
-  if (!public_id) {
-    return res.status(400).json({ error: "Missing 'public_id' query parameter" });
-  }
-
-  try {
-    const resource = await cloudinary.api.resource(public_id, { with_field: ["context"] });
-    console.log("Detail API response:", resource);
-
-    res.json({
-      public_id: resource.public_id,
-      url: resource.secure_url,
-      tags: resource.tags || [],
-      title: resource.context?.custom?.caption || resource.public_id,
-      description: resource.context?.custom?.alt || "",
-    });
   } catch (err) {
     console.error("Cloudinary API error:", err);
     res.status(500).json({ error: err.message });
@@ -84,7 +69,9 @@ app.get("/detail", async (req, res) => {
 app.get("/upload", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "upload.html"));
 });
-
+app.get("/upload.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "upload.html"));
+});
 
 app.listen(port, () => {
   console.log(`✅ Server running at http://0.0.0.0:${port}`);
