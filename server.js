@@ -80,6 +80,12 @@ app.get("/detail", async (req, res) => {
   }
 });
 
+// Serve upload page
+app.get("/upload", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "upload.html"));
+});
+
+
 app.listen(port, () => {
   console.log(`✅ Server running at http://0.0.0.0:${port}`);
 });
